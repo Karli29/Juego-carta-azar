@@ -149,6 +149,11 @@ void jugar(vector<Jugador> &jugadores, vector<Carta> &mazo) {
     mesa.push_back(mazo.back());
     mazo.pop_back();
     
+    // Calcular puntajes iniciales
+    for (auto& jugador : jugadores) {
+        jugador.puntaje = calcularPuntaje(jugador.mano);
+    }
+
     bool juegoTerminado = false;
     bool golpeado = false;
     int turnosRestantes = 0;
@@ -157,8 +162,7 @@ void jugar(vector<Jugador> &jugadores, vector<Carta> &mazo) {
         for (auto &jugador : jugadores) {
             if (juegoTerminado) break;
 
-            // Verificar si se completaron los turnos después del golpe
-            if (golpeado && turnosRestantes <= 0) {
+            if (golpeado && turnosRestantes < 0) {
                 juegoTerminado = true;
                 break;
             }
@@ -169,7 +173,7 @@ void jugar(vector<Jugador> &jugadores, vector<Carta> &mazo) {
             
             cout << "\nTu mano:" << endl;
             mostrarMano(jugador.mano);
-            cout << "Puntaje actual: " << calcularPuntaje(jugador.mano) << endl;
+            cout << "Puntaje actual: " << jugador.puntaje << endl;
 
             char opcion;
             do {
@@ -211,20 +215,25 @@ void jugar(vector<Jugador> &jugadores, vector<Carta> &mazo) {
             } 
             else if (opcion == 'w') {
                 golpeado = true;
-                turnosRestantes = jugadores.size() - 1;  // Turnos restantes corregidos
+                turnosRestantes = jugadores.size() - 1;
                 cout << "\n¡" << jugador.nombre << " ha golpeado la mesa!" << endl;
             }
 
+            // Actualizar puntaje después de cualquier acción
             jugador.puntaje = calcularPuntaje(jugador.mano);
+            
             if (jugador.puntaje == 31) {
                 cout << "\n¡¡¡" << jugador.nombre << " alcanzó 31 puntos!!!\n";
                 juegoTerminado = true;
+                break;
             }
 
+            // Decrementar turnos restantes después de cada jugador
             if (golpeado) turnosRestantes--;
         }
 
-        if (golpeado && turnosRestantes <= 0) {
+        // Verificar fin del juego después de cada ronda completa
+        if (golpeado && turnosRestantes < 0) {
             juegoTerminado = true;
         }
 
@@ -330,6 +339,5 @@ void mostrarCreditos() {
     cout << "\n=== CRÉDITOS ===" << endl
          << "Desarrollado por:" << endl
          << "- Pamela García" << endl
-         << "- Heidy Cruz" << endl
-         << "Versión 2.1 - 2023" << endl;
+         << "- Heidy Cruz" << endl;
 }
