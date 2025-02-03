@@ -1,0 +1,335 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+#include <algorithm>
+#include <cctype>
+using namespace std;
+
+struct Carta {
+    string palo;
+    string color;
+    int valor;
+};
+
+struct Jugador {
+    string nombre;
+    vector<Carta> mano;
+    int puntaje = 0;
+};
+
+void mostrarMenu();
+void jugar(vector<Jugador> &jugadores, vector<Carta> &mazo);
+void mostrarPuntajes(const vector<Jugador> &jugadores);
+void mostrarCreditos();
+void inicializarMazo(vector<Carta> &mazo);
+void repartirCartas(vector<Carta> &mazo, vector<Jugador> &jugadores);
+int calcularPuntaje(const vector<Carta> &mano);
+void mostrarMano(const vector<Carta> &mano);
+string obtenerNombreCarta(int valor);
+void barajarMazo(vector<Carta> &mazo);
+void manejarDescarte(Jugador& jugador, vector<Carta>& mesa);
+int obtenerValorReal(const vector<Carta>& mano);
+
+int main() {
+    cout << "Bienvenidos al Juego de cartas '31'" << endl;
+    srand(time(0));
+    vector<Jugador> jugadores(3);
+    vector<Carta> mazo;
+    bool salir = false;
+
+    for (int i = 0; i < jugadores.size(); i++) {
+        cout << "Ingrese el nombre del jugador " << i + 1 << ": ";
+        cin >> jugadores[i].nombre;
+    }
+
+    inicializarMazo(mazo);
+
+    while (!salir) {
+        mostrarMenu();
+        int opcion;
+        cin >> opcion;
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Entrada inválida. Intente nuevamente." << endl;
+            continue;
+        }
+        switch (opcion) {
+            case 1: jugar(jugadores, mazo); break;
+            case 2: mostrarPuntajes(jugadores); break;
+            case 3: mostrarCreditos(); break;
+            case 4: salir = true; break;
+            default: cout << "Opción inválida!" << endl;
+        }
+    }
+    cout << "¡Gracias por jugar!" << endl;
+    return 0;
+}
+
+void inicializarMazo(vector<Carta> &mazo) {
+    const string palos[] = {"Corazón Rojo", "Corazón Negro", "Diamante", "Trébol"};
+    const string colores[] = {"Rojo", "Negro", "Rojo", "Negro"};
+    for (int i = 0; i < 4; i++) {
+        for (int valor = 1; valor <= 13; valor++) {
+            mazo.push_back({palos[i], colores[i], valor});
+        }
+    }
+    barajarMazo(mazo);
+}
+
+void barajarMazo(vector<Carta> &mazo) {
+    for (size_t i = 0; i < mazo.size(); i++) {
+        size_t j = i + rand() % (mazo.size() - i);
+        swap(mazo[i], mazo[j]);
+    }
+}
+
+void repartirCartas(vector<Carta> &mazo, vector<Jugador> &jugadores) {
+    for (auto &jugador : jugadores) {
+        jugador.mano.clear();
+        for (int j = 0; j < 3; j++) {
+            jugador.mano.push_back(mazo.back());
+            mazo.pop_back();
+        }
+    }
+}
+
+int calcularPuntaje(const vector<Carta> &mano) {
+    int mejorPuntaje = 0;
+    vector<string> combinaciones;
+
+    for (const auto &carta : mano) {
+        string clave = carta.color + carta.palo;
+        if (find(combinaciones.begin(), combinaciones.end(), clave) == combinaciones.end()) {
+            combinaciones.push_back(clave);
+            int suma = 0;
+            for (const auto &c : mano) {
+                if (c.color == carta.color && c.palo == carta.palo) {
+                    suma += (c.valor == 1) ? 11 : 
+                           (c.valor >= 10) ? 10 : c.valor;
+                }
+            }
+            mejorPuntaje = max(mejorPuntaje, suma);
+        }
+    }
+
+    if (mejorPuntaje == 0) {
+        for (const auto &carta : mano) {
+            int valor = (carta.valor == 1) ? 11 : 
+                       (carta.valor >= 10) ? 10 : carta.valor;
+            mejorPuntaje = max(mejorPuntaje, valor);
+        }
+    }
+    return mejorPuntaje;
+}
+
+void mostrarMano(const vector<Carta> &mano) {
+    int i = 1;
+    for (const auto &carta : mano) {
+        cout << i++ << ". " << obtenerNombreCarta(carta.valor)
+             << " de " << carta.palo << " (" << carta.color << ")" << endl;
+    }
+}
+
+string obtenerNombreCarta(int valor) {
+    switch (valor) {
+        case 1: return "A";
+        case 11: return "J";
+        case 12: return "Q";
+        case 13: return "K";
+        default: return to_string(valor);
+    }
+}
+
+void jugar(vector<Jugador> &jugadores, vector<Carta> &mazo) {
+    repartirCartas(mazo, jugadores);
+    vector<Carta> mesa;
+    mesa.push_back(mazo.back());
+    mazo.pop_back();
+    
+    bool juegoTerminado = false;
+    bool golpeado = false;
+    int turnosRestantes = 0;
+
+    while (!juegoTerminado) {
+        for (auto &jugador : jugadores) {
+            if (juegoTerminado) break;
+
+            // Verificar si se completaron los turnos después del golpe
+            if (golpeado && turnosRestantes <= 0) {
+                juegoTerminado = true;
+                break;
+            }
+
+            cout << "\n=== Turno de " << jugador.nombre << " ===" << endl;
+            cout << "Carta en mesa: " << obtenerNombreCarta(mesa.back().valor)
+                 << " de " << mesa.back().palo << endl;
+            
+            cout << "\nTu mano:" << endl;
+            mostrarMano(jugador.mano);
+            cout << "Puntaje actual: " << calcularPuntaje(jugador.mano) << endl;
+
+            char opcion;
+            do {
+                cout << "\nOpciones:\n"
+                     << "o - Tomar carta de la mesa\n"
+                     << "x - Tomar del mazo\n";
+                if (!golpeado) cout << "w - Golpear mesa\n";
+                cout << "Elección: ";
+                cin >> opcion;
+                opcion = tolower(opcion);
+            } while (!(opcion == 'o' || opcion == 'x' || (opcion == 'w' && !golpeado)));
+
+            if (opcion == 'o' || opcion == 'x') {
+                Carta nuevaCarta;
+                if (opcion == 'o') {
+                    nuevaCarta = mesa.back();
+                    mesa.pop_back();
+                } else {
+                    nuevaCarta = mazo.back();
+                    mazo.pop_back();
+                    cout << "\nCarta obtenida: " << obtenerNombreCarta(nuevaCarta.valor)
+                         << " de " << nuevaCarta.palo << endl;
+
+                    char respuesta;
+                    do {
+                        cout << "¿Quieres quedarte con esta carta? (s/n): ";
+                        cin >> respuesta;
+                        respuesta = tolower(respuesta);
+                    } while (respuesta != 's' && respuesta != 'n');
+
+                    if (respuesta == 'n') {
+                        mesa.push_back(nuevaCarta);
+                        continue;
+                    }
+                }
+
+                jugador.mano.push_back(nuevaCarta);
+                manejarDescarte(jugador, mesa);
+            } 
+            else if (opcion == 'w') {
+                golpeado = true;
+                turnosRestantes = jugadores.size() - 1;  // Turnos restantes corregidos
+                cout << "\n¡" << jugador.nombre << " ha golpeado la mesa!" << endl;
+            }
+
+            jugador.puntaje = calcularPuntaje(jugador.mano);
+            if (jugador.puntaje == 31) {
+                cout << "\n¡¡¡" << jugador.nombre << " alcanzó 31 puntos!!!\n";
+                juegoTerminado = true;
+            }
+
+            if (golpeado) turnosRestantes--;
+        }
+
+        if (golpeado && turnosRestantes <= 0) {
+            juegoTerminado = true;
+        }
+
+        if (mazo.empty()) {
+            cout << "\n¡Se agotó el mazo!" << endl;
+            juegoTerminado = true;
+        }
+    }
+
+    cout << "\n=== RESULTADOS FINALES ===" << endl;
+    for (const auto& j : jugadores) {
+        cout << j.nombre << ": " << j.puntaje << " puntos" << endl;
+    }
+
+    // Sistema de desempate
+    vector<Jugador*> posiblesGanadores;
+    int maxPuntaje = -1;
+    
+    for (auto& j : jugadores) {
+        if (j.puntaje > maxPuntaje) {
+            maxPuntaje = j.puntaje;
+            posiblesGanadores.clear();
+            posiblesGanadores.push_back(&j);
+        } 
+        else if (j.puntaje == maxPuntaje) {
+            posiblesGanadores.push_back(&j);
+        }
+    }
+
+    if (posiblesGanadores.size() > 1) {
+        int maxValor = -1;
+        for (auto* jugador : posiblesGanadores) {
+            int valorActual = obtenerValorReal(jugador->mano);
+            if (valorActual > maxValor) {
+                maxValor = valorActual;
+                posiblesGanadores.clear();
+                posiblesGanadores.push_back(jugador);
+            } else if (valorActual == maxValor) {
+                posiblesGanadores.push_back(jugador);
+            }
+        }
+    }
+
+    Jugador* ganador = posiblesGanadores.front();
+    cout << "\n¡GANADOR: " << ganador->nombre << " con " << ganador->puntaje << " puntos!" << endl;
+
+    // Reiniciar mazo para nuevas partidas
+    inicializarMazo(mazo);
+}
+
+void manejarDescarte(Jugador& jugador, vector<Carta>& mesa) {
+    int seleccion;
+    bool entradaValida = false;
+
+    cout << "\nSelecciona una carta para descartar (1-" << jugador.mano.size() << "):" << endl;
+    mostrarMano(jugador.mano);
+
+    do {
+        cout << "Opción: ";
+        if (cin >> seleccion) {
+            if (seleccion >= 1 && seleccion <= jugador.mano.size()) {
+                entradaValida = true;
+            }
+        }
+        if (!entradaValida) {
+            cin.clear();
+            cin.ignore(10000, '\n');
+            cout << "Entrada inválida. Intente nuevamente." << endl;
+        }
+    } while (!entradaValida);
+
+    mesa.push_back(jugador.mano[seleccion-1]);
+    jugador.mano.erase(jugador.mano.begin() + seleccion-1);
+}
+
+int obtenerValorReal(const vector<Carta>& mano) {
+    int maxValor = 0;
+    for (const auto& carta : mano) {
+        int valor = (carta.valor == 1) ? 11 : 
+                   (carta.valor >= 10) ? 10 : carta.valor;
+        if (valor > maxValor) maxValor = valor;
+    }
+    return maxValor;
+}
+
+void mostrarMenu() {
+    cout << "\n=== MENÚ PRINCIPAL ===" << endl
+         << "1. Jugar nueva partida" << endl
+         << "2. Ver puntajes" << endl
+         << "3. Créditos" << endl
+         << "4. Salir" << endl
+         << "Seleccione una opción: ";
+}
+
+void mostrarPuntajes(const vector<Jugador> &jugadores) {
+    cout << "\n=== PUNTAJES ACTUALES ===" << endl;
+    for (const auto& j : jugadores) {
+        cout << j.nombre << ": " << j.puntaje << " puntos" << endl;
+    }
+}
+
+void mostrarCreditos() {
+    cout << "\n=== CRÉDITOS ===" << endl
+         << "Desarrollado por:" << endl
+         << "- Pamela García" << endl
+         << "- Heidy Cruz" << endl
+         << "Versión 2.1 - 2023" << endl;
+}
